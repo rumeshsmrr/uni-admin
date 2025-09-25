@@ -3,9 +3,16 @@ import Input from "../../components/ui/Inout";
 import Select from "../../components/ui/Select";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
-import { useNavigate } from "react-router-dom";
-import { departmentsMock} from "../../data/mock";
-import { useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  EmployeeAPI,
+} from "../../api/employees";
+import type { EmployeeCreatePayload, EmployeeUpdatePayload } from "../../api/employees";
+
+import { DepartmentAPI } from "../../api/departments";
+import { AxiosError } from "axios";
+import { useEffect, useState } from "react";
 
 export type FormValues = {
   firstName: string;
@@ -15,7 +22,17 @@ export type FormValues = {
   age: number;
   salary: number;
   departmentId: string;
+  rowVersion?: string;
 };
+
+type ProblemDetails = {
+  type?: string;
+  title?: string;
+  status?: number;
+  traceId?: string;
+  errors?: Record<string, string[]>; // field → array of messages
+};
+
 
 type EmployeeFormProps = {
   mode: "create" | "edit";
@@ -24,6 +41,17 @@ type EmployeeFormProps = {
 
 export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
   const nav = useNavigate();
+  const { id } = useParams();
+  const queryClient = useQueryClient();
+
+  // 🔔 Error alert messages
+  const [formErrors, setFormErrors] = useState<string[]>([]);
+
+  // Departments dropdown
+  const { data: departments = [] } = useQuery({
+    queryKey: ["departments"],
+    queryFn: DepartmentAPI.getAll,
+  });
 
   const {
     register,
@@ -43,7 +71,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
     },
   });
 
-  // auto-calc age
+  // Auto-calc age from dob
   const dob = watch("dob");
   useEffect(() => {
     if (dob) {
@@ -58,15 +86,71 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
     }
   }, [dob, setValue]);
 
-  const onSubmit = async (data: FormValues) => {
+  // ✅ Create mutation
+  const createMutation = useMutation({
+    mutationFn: (data: EmployeeCreatePayload) => EmployeeAPI.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      nav("/employees");
+    },
+    onError: (error: AxiosError<ProblemDetails>) => {
+      const errs = error.response?.data?.errors;
+      if (errs) {
+        const messages = Object.values(errs).flat();
+        setFormErrors(messages);
+      } else {
+        setFormErrors([error.message || "Failed to create employee."]);
+      }
+    },
+    
+  });
+
+  // ✅ Update mutation
+  const updateMutation = useMutation({
+    mutationFn: (data: EmployeeUpdatePayload) =>
+      EmployeeAPI.update(Number(id), data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      nav("/employees");
+    },
+    onError: (error: AxiosError<ProblemDetails>) => {
+      const errs = error.response?.data?.errors;
+      if (errs) {
+        const messages = Object.values(errs).flat();
+        setFormErrors(messages);
+      } else {
+        setFormErrors([error.message || "Failed to update employee."]);
+      }
+    },
+    
+  });
+
+  // ✅ Submit handler
+  const onSubmit = (data: FormValues) => {
+    setFormErrors([]); // reset before new request
+
     if (mode === "create") {
-      // TODO: call backend POST
-      alert(`Employee "${data.firstName} ${data.lastName}" created (mock).`);
+      const payload: EmployeeCreatePayload = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        dob: data.dob,
+        salary: data.salary,
+        departmentId: Number(data.departmentId),
+      };
+      createMutation.mutate(payload);
     } else {
-      // TODO: call backend PUT
-      alert(`Employee "${data.firstName} ${data.lastName}" updated (mock).`);
+      const payload: EmployeeUpdatePayload = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        dob: data.dob,
+        salary: data.salary,
+        departmentId: Number(data.departmentId),
+        rowVersion: data.rowVersion!, // must send for concurrency
+      };
+      updateMutation.mutate(payload);
     }
-    nav("/employees");
   };
 
   return (
@@ -76,25 +160,30 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           {mode === "create" ? "Add Employee" : "Edit Employee"}
         </h1>
 
+        {/* 🔔 Alert with validation messages */}
+        {formErrors.length > 0 && (
+          <div className="rounded-md bg-red-50 border border-red-400 p-3 text-red-700">
+            <ul className="list-disc list-inside space-y-1">
+              {formErrors.map((err, i) => (
+                <li key={i}>{err}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Name */}
           <div className="grid md:grid-cols-2 gap-4">
             <Input
               label="First Name"
               placeholder="John"
-              {...register("firstName", {
-                required: "First name is required",
-                minLength: { value: 2, message: "At least 2 characters" },
-              })}
+              {...register("firstName", { required: "First name is required" })}
               error={errors.firstName?.message}
             />
             <Input
               label="Last Name"
               placeholder="Doe"
-              {...register("lastName", {
-                required: "Last name is required",
-                minLength: { value: 2, message: "At least 2 characters" },
-              })}
+              {...register("lastName", { required: "Last name is required" })}
               error={errors.lastName?.message}
             />
           </div>
@@ -104,13 +193,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
             label="Email"
             type="email"
             placeholder="john.doe@example.com"
-            {...register("email", {
-              required: "Email is required",
-              pattern: {
-                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                message: "Invalid email format",
-              },
-            })}
+            {...register("email", { required: "Email is required" })}
             error={errors.email?.message}
           />
 
@@ -125,11 +208,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
             <Input
               label="Age"
               type="number"
-              {...register("age", {
-                required: "Age is required",
-                min: { value: 18, message: "Must be at least 18" },
-                valueAsNumber: true,
-              })}
+              {...register("age")}
               error={errors.age?.message}
               readOnly
             />
@@ -139,11 +218,7 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
           <Input
             label="Salary"
             type="number"
-            {...register("salary", {
-              required: "Salary is required",
-              min: { value: 1, message: "Salary must be greater than 0" },
-              valueAsNumber: true,
-            })}
+            {...register("salary", { required: "Salary is required" })}
             error={errors.salary?.message}
           />
 
@@ -154,24 +229,23 @@ export default function EmployeeForm({ mode, initialData }: EmployeeFormProps) {
             error={errors.departmentId?.message}
           >
             <option value="">Select Department</option>
-            {departmentsMock.map((d) => (
+            {departments.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.name}
+                {d.departmentName}
               </option>
             ))}
           </Select>
 
-          {/* Actions */}
           <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="soft"
-              onClick={() => nav("/employees")}
-            >
+            <Button type="button" variant="soft" onClick={() => nav("/employees")}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : mode === "create" ? "Save" : "Update"}
+              {isSubmitting
+                ? "Saving..."
+                : mode === "create"
+                ? "Save"
+                : "Update"}
             </Button>
           </div>
         </form>

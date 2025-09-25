@@ -5,15 +5,16 @@ export type Department = {
   createdAt: string;
 };
 
-  export type Employee = {
-    id: number;
-    firstName: string;
-    lastName: string;
-    email: string;
-    dob: string; // ISO date
-    age: number; // ✅ now directly stored from DB
-    salary: number;
-    departmentId: number;
-    createdAt: string;
-  };
-  
+export type Employee = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  dob: string;           // ISO string from backend
+  age: number;
+  salary: number;
+  departmentId: number;
+  departmentName: string;
+  createdAt: string;
+  rowVersion: string;
+};

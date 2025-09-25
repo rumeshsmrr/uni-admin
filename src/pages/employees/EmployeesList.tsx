@@ -1,33 +1,64 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ListToolbar from "../../components/toolbar/ListToolbar";
-import  DataTable from "../../components/ui/DataTable";
+import DataTable from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import Button from "../../components/ui/Button";
 import Avatar from "../../components/ui/Avatar";
 import Select from "../../components/ui/Select";
-import { employeesMock, departmentsMock } from "../../data/mock";
+import { EmployeeAPI } from "../../api/employees";
+
+import { DepartmentAPI } from "../../api/departments";
 import { formatCurrency, formatDate } from "../../utils/format";
+import { AxiosError } from "axios";
 
 export default function EmployeesList() {
   const nav = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [deptId, setDeptId] = useState<number | "">("");
 
+  // ✅ Fetch employees
+  const { data: employees = [], isLoading } = useQuery({
+    queryKey: ["employees"],
+    queryFn: EmployeeAPI.getAll,
+  });
+
+  // ✅ Fetch departments (for mapping names)
+  const { data: departments = [] } = useQuery({
+    queryKey: ["departments"],
+    queryFn: DepartmentAPI.getAll,
+  });
+
+  // ✅ Delete mutation
+  const deleteMutation = useMutation<void, AxiosError, number>({
+    mutationFn: (id) => EmployeeAPI.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+    },
+    onError: (error) => {
+      const msg =
+        (error.response?.data as { message?: string })?.message ||
+        "Failed to delete employee.";
+      alert(msg);
+    },
+  });
+
   // Join employees with department name
   const enhanced = useMemo(() => {
-    const deptMap = new Map(departmentsMock.map(d => [d.id, d.departmentName]));
-    return employeesMock.map(e => ({
+    const deptMap = new Map(departments.map((d) => [d.id, d.departmentName]));
+    return employees.map((e) => ({
       ...e,
       fullName: `${e.firstName} ${e.lastName}`,
       departmentName: deptMap.get(e.departmentId) ?? "—",
     }));
-  }, []);
+  }, [employees, departments]);
 
   // Filtering
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return enhanced.filter(e => {
+    return enhanced.filter((e) => {
       const matchesQ =
         !q ||
         e.fullName.toLowerCase().includes(q) ||
@@ -43,8 +74,8 @@ export default function EmployeesList() {
       id: "name",
       header: "Employee",
       sortable: true,
-      selector: r => r.fullName.toLowerCase(),
-      cell: r => (
+      selector: (r) => r.fullName.toLowerCase(),
+      cell: (r) => (
         <div className="flex items-center gap-3">
           <Avatar name={r.fullName} />
           <div>
@@ -58,42 +89,46 @@ export default function EmployeesList() {
       id: "dob",
       header: "DOB",
       sortable: true,
-      selector: r => new Date(r.dob).getTime(),
-      cell: r => <span className="text-subtext">{formatDate(r.dob)}</span>,
+      selector: (r) => new Date(r.dob).getTime(),
+      cell: (r) => <span className="text-subtext">{formatDate(r.dob)}</span>,
     },
     {
       id: "age",
       header: "Age",
       sortable: true,
-      selector: r => r.age,
+      selector: (r) => r.age,
     },
     {
       id: "salary",
       header: "Salary",
       sortable: true,
-      selector: r => r.salary,
-      cell: r => <span className="font-medium">{formatCurrency(r.salary)}</span>,
+      selector: (r) => r.salary,
+      cell: (r) => <span className="font-medium">{formatCurrency(r.salary)}</span>,
     },
     {
       id: "department",
       header: "Department",
       sortable: true,
-      selector: r => r.departmentName.toLowerCase(),
-      cell: r => <span className="badge">{r.departmentName}</span>,
+      selector: (r) => r.departmentName.toLowerCase(),
+      cell: (r) => <span className="badge">{r.departmentName}</span>,
     },
     {
       id: "actions",
       header: "Actions",
       selector: () => "",
-      cell: r => (
+      cell: (r) => (
         <div className="flex gap-2">
-          <Button variant="soft" size="sm" onClick={() => nav(`/employees/${r.id}`)}>
+          <Button
+            variant="soft"
+            size="sm"
+            onClick={() => nav(`/employees/${r.id}`)}
+          >
             Edit
           </Button>
           <Button
             variant="danger"
             size="sm"
-            onClick={() => alert(`Delete ${r.fullName} (mock)`)}
+            onClick={() => deleteMutation.mutate(r.id)}
           >
             Delete
           </Button>
@@ -101,6 +136,8 @@ export default function EmployeesList() {
       ),
     },
   ];
+
+  if (isLoading) return <p>Loading employees...</p>;
 
   return (
     <div className="space-y-6">
@@ -117,15 +154,14 @@ export default function EmployeesList() {
         onAdd={() => nav("/employees/new")}
         addLabel="Add "
       >
-        {/* ✅ Department filter */}
         <Select
           value={deptId === "" ? "" : String(deptId)}
-          onChange={(e: { target: { value: string; }; }) =>
+          onChange={(e) =>
             setDeptId(e.target.value === "" ? "" : Number(e.target.value))
           }
         >
           <option value="">All Departments</option>
-          {departmentsMock.map(d => (
+          {departments.map((d) => (
             <option key={d.id} value={d.id}>
               {d.departmentName}
             </option>
@@ -137,7 +173,7 @@ export default function EmployeesList() {
       <DataTable
         data={filtered}
         columns={columns}
-        rowKey={r => r.id}
+        rowKey={(r) => r.id}
         initialPageSize={5}
       />
     </div>
