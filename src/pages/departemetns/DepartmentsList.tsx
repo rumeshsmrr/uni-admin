@@ -48,7 +48,7 @@ export default function DepartmentsList() {
       cell: r => (
         <div className="flex gap-2">
           <Button variant="soft" onClick={()=>nav(`/departments/${r.id}`)}>Edit</Button>
-          <Button variant="soft" onClick={()=>alert(`Delete ${r.name} (mock)`)}>Delete</Button>
+          <Button variant="danger" onClick={()=>alert(`Delete ${r.name} (mock)`)}>Delete</Button>
         </div>
       ),
     },
