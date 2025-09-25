@@ -1,0 +1,113 @@
+/* src/index.css */
+/* Fonts */
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap");
+
+/* Tailwind v4 core */
+@import "tailwindcss";
+
+/* -------------------------------
+   Light/Dark palettes (HEX)
+-------------------------------- */
+:root {
+  /* Light */
+  --bg: #f8fafc;        /* app background */
+  --card: #ffffff;      /* surfaces/cards */
+  --muted: #eef2f6;     /* subtle surfaces/inputs */
+  --border: #dbe4f3;    /* borders/dividers */
+  --text: #1e293b;      /* primary text */
+  --subtext: #64748b;   /* secondary text */
+
+  --primary: #3b82f6;   /* calm educational blue */
+  --primary-fg: #ffffff;
+  --ring: #3b82f6;
+
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger:  #ef4444;
+}
+
+.dark {
+  /* Dark */
+  --bg: #0b1220;
+  --card: #111827;
+  --muted: #1f2937;
+  --border:#2b3445;
+  --text: #e5e7eb;
+  --subtext:#94a3b8;
+
+  --primary: #60a5fa;   /* brighter for dark */
+  --primary-fg: #0b1220;
+  --ring: #60a5fa;
+
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger:  #f87171;
+}
+
+/* --------------------------------
+   Map variables to Tailwind tokens
+--------------------------------- */
+@theme {
+  /* Colors → usable as bg-bg, text-text, border-border, etc. */
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-subtext: var(--subtext);
+
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-ring: var(--ring);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  /* Typography & radii tokens */
+  --font-sans: "Roboto", ui-sans-serif, system-ui, sans-serif;
+  --radius-xl: 14px;
+  --radius-2xl: 22px;
+
+  /* Shadow tokens */
+  --shadow-card: 0 6px 18px rgba(0,0,0,0.06);
+  --shadow-card-dark: 0 6px 18px rgba(0,0,0,0.30);
+}
+
+/* -------------------------------
+   Base
+-------------------------------- */
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    margin: 0;
+  }
+
+  /* Optional wrapper utility for the app */
+  .app-body { @apply bg-bg text-text antialiased; }
+}
+
+/* -------------------------------
+   Reusable components/utilities
+-------------------------------- */
+@layer components {
+  .card {
+    @apply bg-card rounded-2xl p-6 border border-border;
+    box-shadow: var(--shadow-card);
+  }
+  .dark .card { box-shadow: var(--shadow-card-dark); }
+
+  .btn { @apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium transition; }
+  .btn-primary { @apply bg-primary text-primary-fg hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-ring; }
+  .btn-soft { @apply bg-muted text-text/80 hover:bg-muted/80; }
+
+  .input {
+    @apply w-full rounded-xl bg-muted border border-border px-3 py-2
+           text-text placeholder-subtext focus:outline-none focus:ring-2 focus:ring-ring;
+  }
+
+  .badge { @apply inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs; }
+}
