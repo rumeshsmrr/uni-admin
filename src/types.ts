@@ -1,10 +1,10 @@
 export type Department = {
-    id: number;
-    code: string;
-    name: string;
-    createdAt: string; // ISO
-  };
-  
+  id: number;
+  departmentCode: string;
+  departmentName: string;
+  createdAt: string;
+};
+
   export type Employee = {
     id: number;
     firstName: string;

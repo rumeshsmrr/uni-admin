@@ -2,11 +2,14 @@ import { useForm } from "react-hook-form";
 import Input from "../../components/ui/Inout";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { DepartmentAPI } from "../../api/departments";
+import { AxiosError } from "axios";
 
 export type DepartmentFormValues = {
-  code: string;
-  name: string;
+  departmentCode: string;
+  departmentName: string;
 };
 
 type DepartmentFormProps = {
@@ -16,6 +19,8 @@ type DepartmentFormProps = {
 
 export default function DepartmentForm({ mode, initialData }: DepartmentFormProps) {
   const nav = useNavigate();
+  const { id } = useParams();
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -23,20 +28,49 @@ export default function DepartmentForm({ mode, initialData }: DepartmentFormProp
     formState: { errors, isSubmitting },
   } = useForm<DepartmentFormValues>({
     defaultValues: initialData ?? {
-      code: "",
-      name: "",
+      departmentCode: "",
+      departmentName: "",
     },
   });
 
-  const onSubmit = async (data: DepartmentFormValues) => {
+  // ✅ Create mutation
+  const createMutation = useMutation({
+    mutationFn: DepartmentAPI.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departments"] });
+      nav("/departments");
+    },
+    onError: (error: AxiosError) => {
+      const msg =
+        (error.response?.data as { message?: string })?.message ||
+        "Failed to create department.";
+      alert(msg);
+    },
+  });
+
+  // ✅ Update mutation
+  const updateMutation = useMutation({
+    mutationFn: (data: DepartmentFormValues) =>
+      DepartmentAPI.update(Number(id), data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departments"] });
+      nav("/departments");
+    },
+    onError: (error: AxiosError) => {
+      const msg =
+        (error.response?.data as { message?: string })?.message ||
+        "Failed to update department.";
+      alert(msg);
+    },
+  });
+
+  // ✅ Submit handler
+  const onSubmit = (data: DepartmentFormValues) => {
     if (mode === "create") {
-      // TODO: call backend POST /departments
-      alert(`Department "${data.name}" created (mock).`);
+      createMutation.mutate(data);
     } else {
-      // TODO: call backend PUT /departments/:id
-      alert(`Department "${data.name}" updated (mock).`);
+      updateMutation.mutate(data);
     }
-    nav("/departments");
   };
 
   return (
@@ -50,21 +84,21 @@ export default function DepartmentForm({ mode, initialData }: DepartmentFormProp
           <Input
             label="Department Code"
             placeholder="CSE"
-            {...register("code", {
+            {...register("departmentCode", {
               required: "Code is required",
               minLength: { value: 2, message: "At least 2 characters" },
             })}
-            error={errors.code?.message}
+            error={errors.departmentCode?.message}
           />
 
           <Input
             label="Department Name"
             placeholder="Computer Science"
-            {...register("name", {
+            {...register("departmentName", {
               required: "Name is required",
               minLength: { value: 3, message: "At least 3 characters" },
             })}
-            error={errors.name?.message}
+            error={errors.departmentName?.message}
           />
 
           <div className="flex justify-end gap-2">
@@ -76,7 +110,11 @@ export default function DepartmentForm({ mode, initialData }: DepartmentFormProp
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : mode === "create" ? "Save" : "Update"}
+              {isSubmitting
+                ? "Saving..."
+                : mode === "create"
+                ? "Save"
+                : "Update"}
             </Button>
           </div>
         </form>

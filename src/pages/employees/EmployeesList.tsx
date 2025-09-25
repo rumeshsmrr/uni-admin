@@ -16,7 +16,7 @@ export default function EmployeesList() {
 
   // Join employees with department name
   const enhanced = useMemo(() => {
-    const deptMap = new Map(departmentsMock.map(d => [d.id, d.name]));
+    const deptMap = new Map(departmentsMock.map(d => [d.id, d.departmentName]));
     return employeesMock.map(e => ({
       ...e,
       fullName: `${e.firstName} ${e.lastName}`,
@@ -127,7 +127,7 @@ export default function EmployeesList() {
           <option value="">All Departments</option>
           {departmentsMock.map(d => (
             <option key={d.id} value={d.id}>
-              {d.name}
+              {d.departmentName}
             </option>
           ))}
         </Select>
