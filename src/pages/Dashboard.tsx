@@ -1,17 +1,39 @@
+import { useQuery } from "@tanstack/react-query";
 import Card from "../components/ui/Card";
-import { departmentsMock, employeesMock } from "../data/mock";
 import { formatCurrency } from "../utils/format";
+import { DepartmentAPI } from "../api/departments";
+import { EmployeeAPI } from "../api/employees";
 
 export default function Dashboard() {
-  // mock metrics
-  const totalDepartments = departmentsMock.length;
-  const totalEmployees = employeesMock.length;
+  // ✅ Fetch data
+  const { data: departments = [], isLoading: loadingDepts } = useQuery({
+    queryKey: ["departments"],
+    queryFn: DepartmentAPI.getAll,
+  });
+
+  const { data: employees = [], isLoading: loadingEmps } = useQuery({
+    queryKey: ["employees"],
+    queryFn: EmployeeAPI.getAll,
+  });
+
+  // ✅ Metrics
+  const totalDepartments = departments.length;
+  const totalEmployees = employees.length;
+
   const avgSalary =
-    employeesMock.reduce((sum, e) => sum + e.salary, 0) / employeesMock.length;
+    employees.length > 0
+      ? employees.reduce((sum, e) => sum + e.salary, 0) / employees.length
+      : 0;
 
+  const minAge =
+    employees.length > 0 ? Math.min(...employees.map((e) => e.age)) : 0;
+  const maxAge =
+    employees.length > 0 ? Math.max(...employees.map((e) => e.age)) : 0;
 
-  const minAge = Math.min(...employeesMock.map(e => e.age));
-  const maxAge = Math.max(...employeesMock.map(e => e.age));
+  // ✅ Loading state
+  if (loadingDepts || loadingEmps) {
+    return <p className="text-subtext">Loading dashboard...</p>;
+  }
 
   return (
     <div className="space-y-6">
@@ -51,7 +73,7 @@ export default function Dashboard() {
       <Card className="p-6">
         <h2 className="text-lg font-semibold mb-4">Recently Added Employees</h2>
         <ul className="divide-y divide-border">
-          {employeesMock.slice(0, 5).map(e => (
+          {employees.slice(0, 5).map((e) => (
             <li key={e.id} className="py-3 flex justify-between">
               <div>
                 <p className="font-medium">
@@ -62,6 +84,9 @@ export default function Dashboard() {
               <p className="text-sm font-medium">{formatCurrency(e.salary)}</p>
             </li>
           ))}
+          {employees.length === 0 && (
+            <p className="text-subtext text-sm">No employees found.</p>
+          )}
         </ul>
       </Card>
     </div>
